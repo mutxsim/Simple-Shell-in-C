@@ -16,6 +16,12 @@ void ls(char *directory);
 void cp(char *source, char *destination);
 void mv(char *source, char *destination);
 void rm(char *file);
+void echo(char *string);
+void cat(char *file_name);
+void grep(char *pattern, char *file_name);
+void head(char *filename, int lines);
+void tail(char *filename, int lines);
+void wc(char *file_name);
 
 int main(void)
 {
@@ -77,6 +83,40 @@ int main(void)
         {
             rm(arg1);
         }
+        else if (strcmp(command, "echo") == 0)
+        {
+            echo(arg1);
+        }
+        else if (strcmp(command, "cat") == 0)
+        {
+            cat(arg1);
+        }
+        else if (strcmp(command, "grep") == 0)
+        {
+            grep(arg1, arg2);
+        }
+        else if (strcmp(command, "head") == 0)
+        {
+            if (arg1 != NULL)
+            {
+                head(atoi(arg1), arg2);
+            }
+            else
+            {
+                printf("Usage: head -n <number> <file>\n");
+            }
+        }
+        else if (strcmp(command, "tail") == 0)
+        {
+            if (arg1 != NULL)
+            {
+                tail(atoi(arg1), arg2);
+            }
+            else
+            {
+                printf("Usage: tail -n <number> <file>\n");
+            }
+        }
         else
         {
             printf("Unknown command: %s\n", command);
@@ -129,6 +169,13 @@ void help(void)
     printf(" cp <source> <destination> - Copy a file\n");
     printf(" mv <source> <destination> - Move a file\n");
     printf(" rm <file> - Remove a file\n");
+    printf("echo <text> - display text\n");
+    printf("cat <file> - display file contents\n");
+    printf("grep <pattern> <file> - search for a pattern in a file\n");
+    printf("head <file> <lines> - display first n lines of a file\n");
+    printf("tail <file> <lines> - display last n lines of a file\n");
+    printf("wc <file> - count words, lines, and characters in a file\n");
+    printf("touch <file> - create an empty file\n");
 }
 
 // make new directory function
@@ -252,5 +299,181 @@ void rm(char *file)
     if (remove(file) != 0)
     {
         perror("rm");
+    }
+}
+
+// Function to display text
+void echo(char *text)
+{
+    if (text == NULL)
+    {
+        fprintf(stderr, "echo: missing argument\n");
+    }
+    else
+    {
+        printf("%s\n", text);
+    }
+}
+
+// Function to display file contents
+void cat(char *filename)
+{
+    if (filename == NULL)
+    {
+        fprintf(stderr, "cat: missing argument\n");
+    }
+    else
+    {
+        FILE *file = fopen(filename, "r");
+        if (file == NULL)
+        {
+            perror("cat");
+        }
+        else
+        {
+            char line[1024];
+            while (fgets(line, sizeof(line), file))
+            {
+                printf("%s", line);
+            }
+            fclose(file);
+        }
+    }
+}
+
+// Function to search for a pattern in a file
+void grep(char *pattern, char *filename)
+{
+    if (pattern == NULL || filename == NULL)
+    {
+        fprintf(stderr, "grep: missing argument\n");
+        return;
+    }
+    char command[1024];
+    snprintf(command, sizeof(command), "grep -n '%s' %s", pattern, filename);
+    FILE *pipe_fp = popen(command, "r");
+    if (pipe_fp == NULL)
+    {
+        perror("popen");
+        return;
+    }
+    char buffer[1024];
+    while (fgets(buffer, sizeof(buffer), pipe_fp) != NULL)
+    {
+        printf("%s", buffer);
+    }
+    pclose(pipe_fp);
+}
+
+// Function to display the first n lines of a file
+void head(char *filename, int lines)
+{
+    if (filename == NULL)
+    {
+        fprintf(stderr, "head: missing filename\n");
+        return;
+    }
+    FILE *file = fopen(filename, "r");
+    if (file == NULL)
+    {
+        perror("fopen");
+        return;
+    }
+    char buffer[1024];
+    int count = 0;
+    while (count < lines && fgets(buffer, sizeof(buffer), file) != NULL)
+    {
+        printf("%s \n", buffer);
+        count++;
+    }
+    fclose(file);
+}
+
+// Function to display the last n lines of a file
+void tail(char *filename, int lines)
+{
+    if (filename == NULL)
+    {
+        fprintf(stderr, "tail: missing argument\n");
+    }
+    else
+    {
+        FILE *file = fopen(filename, "r");
+        if (file == NULL)
+        {
+            perror("tail");
+        }
+        else
+        {
+            char buffer[1024][1024];
+            int count = 0;
+            while (fgets(buffer[count % lines], sizeof(buffer[0]), file))
+            {
+                count++;
+            }
+            int start = (count < lines) ? 0 : count % lines;
+            int end = (count < lines) ? count : lines;
+            for (int i = start; i < end; i++)
+            {
+                printf("%s \n", buffer[i % lines]);
+            }
+            fclose(file);
+        }
+    }
+}
+
+// Function to count words, lines, and characters in a file
+void wordCount(char *filename)
+{
+    if (filename == NULL)
+    {
+        fprintf(stderr, "wc: missing argument\n");
+    }
+    else
+    {
+        FILE *file = fopen(filename, "r");
+        if (file == NULL)
+        {
+            perror("wc");
+        }
+        else
+        {
+            int lines = 0, words = 0, characters = 0;
+            char buffer[1024];
+            while (fgets(buffer, sizeof(buffer), file))
+            {
+                lines++;
+                characters += strlen(buffer);
+                char *word = strtok(buffer, " \t\n");
+                while (word != NULL)
+                {
+                    words++;
+                    word = strtok(NULL, " \t\n");
+                }
+            }
+            fclose(file);
+            printf("Lines: %d Words: %d Characters: %d\n", lines, words, characters);
+        }
+    }
+}
+
+// Function to create an empty file
+void touch(char *filename)
+{
+    if (filename == NULL)
+    {
+        fprintf(stderr, "touch: missing argument\n");
+    }
+    else
+    {
+        FILE *file = fopen(filename, "a");
+        if (file == NULL)
+        {
+            perror("touch");
+        }
+        else
+        {
+            fclose(file);
+        }
     }
 }
